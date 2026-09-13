@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Données : téléchargées ou produites à chaque exécution, jamais versionnées
+data/raw/
+*.duckdb
+*.duckdb.wal
+
+# dbt
+target/
+dbt_packages/
+logs/
+
+# Secrets et réglages locaux
+.env
+.claude/settings.local.json
+
+# Notes de travail, gardées hors du dépôt
+CLAUDE.md
+JOURNAL.md
+PROJET.md
