@@ -67,6 +67,20 @@ def test_a_single_step_can_be_rerun_alone(tmp_path):
     assert entry["step"] == "transform" and entry["mode"] == "single-step"
 
 
+def test_a_traceback_is_kept_apart_from_the_output(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+
+    def boom():
+        raise RuntimeError("boom")
+
+    run_pipeline(DAY, steps=("ingest",), journal=journal, step_functions={"ingest": boom})
+
+    (entry,) = read_journal(journal)
+    assert entry["error"] == "RuntimeError: boom"
+    assert "Traceback" in entry["traceback"]
+    assert "output" not in entry
+
+
 def test_two_runs_in_the_same_second_get_different_ids(tmp_path):
     journal = tmp_path / "journal.jsonl"
     for _ in range(2):

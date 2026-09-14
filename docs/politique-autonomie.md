@@ -38,9 +38,11 @@ qui classe une vraie dérive d'unité laisse passer des données fausses sans pr
 Lire les journaux, requêter l'entrepôt, lire le lineage dbt, comparer à l'exécution précédente.
 Aucun n'a d'effet sur le pipeline ni sur les données.
 
-L'outil qui requête l'entrepôt ouvre DuckDB **en lecture seule**. L'interdiction d'écrire est donc
-garantie par la connexion elle-même, pas par une consigne dans le prompt qu'un modèle pourrait
-ignorer.
+L'outil qui requête l'entrepôt ouvre DuckDB **en lecture seule et sans accès aux fichiers
+extérieurs**, réglage verrouillé. La lecture seule ne suffit pas : elle protège la base, mais
+laisse une requête `COPY ... TO` écrire un fichier sur le disque (vérifié). L'interdiction d'écrire
+est donc garantie par la connexion elle-même, pas par une consigne dans le prompt qu'un modèle
+pourrait ignorer.
 
 ### Toujours : ouvrir un ticket
 

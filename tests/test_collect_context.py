@@ -1,70 +1,22 @@
 import json
 
-import duckdb
-import pytest
-
 from pipeline.collect_context import collect_context
 
-MANIFEST = {"parent_map": {
-    "source.fuel_prices.raw.prices": [],
-    "model.fuel_prices.stg_prices": ["source.fuel_prices.raw.prices"],
-    "model.fuel_prices.fct_prices": ["model.fuel_prices.stg_prices"],
-    "test.fuel_prices.not_null_fct_prices_price_eur_per_liter.abc": ["model.fuel_prices.fct_prices"],
-}}
+# The `state` fixture lives in conftest.py.
 
 
-def entry(run_id, step, status, **extra):
-    return {"run_id": run_id, "mode": "full", "data_date": "2026-09-12", "step": step,
-            "status": status, "started_at": "2026-09-13T05:00:00",
-            "finished_at": "2026-09-13T05:00:01", "output": "", **extra}
+def test_the_context_never_shows_a_traceback(state):
+    injected_500 = {"run_id": "r9", "mode": "full", "data_date": "2026-09-13", "step": "ingest",
+                    "status": "failed", "error": "HTTPError: HTTP Error 500: Internal Server Error",
+                    "traceback": 'File "pipeline/faults.py", line 73, in _server_error',
+                    "output": 'File "pipeline/faults.py", line 73, in _server_error'}  # old format
+    with state["journal"].open("a", encoding="utf-8") as f:
+        f.write(json.dumps(injected_500) + "\n")
 
+    text = json.dumps(collect_context(**state)["last_run"])
 
-def dbt(*results):
-    return {"details": {"dbt_results": list(results)}}
-
-
-def make_warehouse(path):
-    con = duckdb.connect(str(path))
-    con.execute("""create table fct_prices (snapshot_date date, station_id varchar, fuel_id integer,
-                   fuel_name varchar, price_updated_at timestamp, price_eur_per_liter double)""")
-    con.execute("""insert into fct_prices values
-        ('2026-09-11', 's1', 1, 'Gazole', '2026-09-11 08:00', 2.30),
-        ('2026-09-11', 's2', 1, 'Gazole', '2026-09-11 08:00', 2.32),
-        ('2026-09-12', 's1', 1, 'Gazole', '2026-09-12 08:00', 2.31),
-        ('2026-09-12', 's2', 1, 'Gazole', '2026-09-12 08:00', null)""")
-    con.close()
-
-
-@pytest.fixture
-def state(tmp_path):
-    journal = tmp_path / "journal.jsonl"
-    failed_test = {"node": "test.fuel_prices.not_null_fct_prices_price_eur_per_liter.abc",
-                   "status": "fail", "message": "Got 1 result", "failures": 1}
-    entries = [
-        entry("r1", "ingest", "success"),
-        entry("r1", "transform", "success", **dbt()),
-        entry("r1", "test", "success", **dbt()),
-        entry("r2", "ingest", "success"),
-        entry("r2", "transform", "success", **dbt()),
-        entry("r2", "test", "failed", **dbt(failed_test)),
-    ]
-    journal.write_text("".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8")
-
-    manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps(MANIFEST), encoding="utf-8")
-
-    warehouse = tmp_path / "warehouse.duckdb"
-    make_warehouse(warehouse)
-
-    day = tmp_path / "raw" / "2026-09-12"
-    day.mkdir(parents=True)
-    (day / "prices.csv").write_text(
-        "pdv_id,prix_id,prix_nom,prix_maj,prix_valeur\n1,1,Gazole,2026-09-12T08:00:00,2.31\n",
-        encoding="utf-8")
-    (day / "stations.csv").write_text("pdv_id,cp\n1,01000\n", encoding="utf-8")
-
-    return {"journal": journal, "warehouse": warehouse, "manifest": manifest,
-            "raw_dir": tmp_path / "raw"}
+    assert "HTTP Error 500" in text
+    assert "faults.py" not in text
 
 
 def test_every_section_is_present_and_readable(state):

@@ -100,8 +100,10 @@ def run_pipeline(day: date, steps: tuple[str, ...] = STEPS, journal: Path = JOUR
                 entry.update(status="success" if result["ok"] else "failed",
                              output=result["output"], details=result.get("details"))
             except Exception as exc:
+                # The traceback is kept for humans, apart from the output: the agent never reads
+                # it, since for an injected fault it would name the injector's own code.
                 entry.update(status="failed", error=f"{type(exc).__name__}: {exc}",
-                             output=_tail(traceback.format_exc()))
+                             traceback=_tail(traceback.format_exc()))
             failed = entry["status"] == "failed"
         entry["finished_at"] = _now()
         _append(journal, entry)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import date
 from pathlib import Path
 from typing import Callable
 
@@ -30,9 +31,17 @@ def _section(read: Callable[[], dict]) -> dict:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
-def _journal(journal: Path) -> list[dict]:
+def read_journal(journal: Path = JOURNAL) -> list[dict]:
     return [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()
             if line.strip()]
+
+
+def _step(entry: dict) -> dict:
+    step = {key: entry.get(key) for key in ("step", "status", "started_at", "finished_at", "error")}
+    # A step that raised has no output worth showing, only a traceback kept for humans; older
+    # journal lines stored that traceback as output, hence the guard.
+    step["output"] = None if entry.get("error") else entry.get("output")
+    return step
 
 
 def last_run(entries: list[dict]) -> dict:
@@ -43,9 +52,7 @@ def last_run(entries: list[dict]) -> dict:
         "mode": steps[0]["mode"],
         "data_date": steps[0]["data_date"],
         "status": "failed" if any(e["status"] == "failed" for e in steps) else "success",
-        "steps": [{key: e.get(key) for key in
-                   ("step", "status", "started_at", "finished_at", "error", "output")}
-                  for e in steps],
+        "steps": [_step(e) for e in steps],
     }
 
 
@@ -73,7 +80,7 @@ def lineage(manifest: Path = MANIFEST) -> dict:
 
 
 def raw_files(data_date: str, raw_dir: Path = RAW_DIR) -> dict:
-    """What landed for the run's data date: which files, which columns, how many rows."""
+    """What landed for a data date: which files, which columns, how many rows."""
     folder = raw_dir / data_date
     if not folder.exists():
         return {"folder": folder.as_posix(), "exists": False}
@@ -90,32 +97,34 @@ def raw_files(data_date: str, raw_dir: Path = RAW_DIR) -> dict:
     return {"folder": folder.as_posix(), "exists": True, "files": files}
 
 
+def day_stats(con: duckdb.DuckDBPyConnection, day: date) -> dict:
+    """Volumes, empty values per column and average price per fuel for one snapshot day."""
+    null_counts = ", ".join(f"count(*) - count({c})" for c in FCT_COLUMNS)
+    prices, stations = con.execute(
+        "select count(*), count(distinct station_id) from fct_prices where snapshot_date = ?",
+        [day]).fetchone()
+    nulls = con.execute(f"select {null_counts} from fct_prices where snapshot_date = ?",
+                        [day]).fetchone()
+    averages = con.execute(
+        "select fuel_name, avg(price_eur_per_liter) from fct_prices "
+        "where snapshot_date = ? group by 1 order by 1", [day]).fetchall()
+    return {
+        "prices": prices,
+        "stations": stations,
+        "null_counts": dict(zip(FCT_COLUMNS, nulls)),
+        "avg_price_by_fuel": {fuel: None if avg is None else round(avg, 4) for fuel, avg in averages},
+    }
+
+
 def warehouse_stats(warehouse: Path = WAREHOUSE, days: int = 2) -> dict:
     """Statistics of the most recent snapshot days, so a day can be compared with the one before."""
     if not warehouse.exists():
         raise FileNotFoundError(warehouse.as_posix())
-    null_counts = ", ".join(f"count(*) - count({c})" for c in FCT_COLUMNS)
     con = duckdb.connect(str(warehouse), read_only=True)
     try:
         dates = [d for (d,) in con.execute(
             "select distinct snapshot_date from fct_prices order by 1 desc limit ?", [days]).fetchall()]
-        by_day = {}
-        for day in dates:
-            prices, stations = con.execute(
-                "select count(*), count(distinct station_id) from fct_prices where snapshot_date = ?",
-                [day]).fetchone()
-            nulls = con.execute(f"select {null_counts} from fct_prices where snapshot_date = ?",
-                                [day]).fetchone()
-            averages = con.execute(
-                "select fuel_name, avg(price_eur_per_liter) from fct_prices "
-                "where snapshot_date = ? group by 1 order by 1", [day]).fetchall()
-            by_day[day.isoformat()] = {
-                "prices": prices,
-                "stations": stations,
-                "null_counts": dict(zip(FCT_COLUMNS, nulls)),
-                "avg_price_by_fuel": {fuel: None if avg is None else round(avg, 4)
-                                      for fuel, avg in averages},
-            }
+        by_day = {day.isoformat(): day_stats(con, day) for day in dates}
     finally:
         con.close()
     return {"latest_snapshot_date": dates[0].isoformat() if dates else None, "by_day": by_day}
@@ -123,10 +132,10 @@ def warehouse_stats(warehouse: Path = WAREHOUSE, days: int = 2) -> dict:
 
 def collect_context(journal: Path = JOURNAL, warehouse: Path = WAREHOUSE,
                     manifest: Path = MANIFEST, raw_dir: Path = RAW_DIR) -> dict:
-    run = _section(lambda: last_run(_journal(journal)))
+    run = _section(lambda: last_run(read_journal(journal)))
     return {
         "last_run": run,
-        "dbt_results": _section(lambda: dbt_results(_journal(journal))),
+        "dbt_results": _section(lambda: dbt_results(read_journal(journal))),
         "raw_files": _section(lambda: raw_files(run["data_date"], raw_dir)),
         "lineage": _section(lambda: lineage(manifest)),
         "warehouse_stats": _section(lambda: warehouse_stats(warehouse)),
