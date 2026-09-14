@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
+from pipeline import faults
 from pipeline.ingest import ingest_day
 
 JOURNAL = Path("logs/journal.jsonl")
@@ -40,7 +41,11 @@ def _dbt_executable() -> str:
 
 
 def run_ingest(day: date) -> dict:
-    summary = ingest_day(day)
+    # An armed fault (pipeline/faults.py) changes where the archive comes from and what gets
+    # written. Nothing in the journal says so, as in a real incident.
+    fault = faults.armed()
+    summary = ingest_day(day, fetch=faults.fetch_for(day, fault),
+                         tamper=faults.tamper_for(day, fault))
     return {"ok": True, "output": json.dumps(summary), "details": summary}
 
 

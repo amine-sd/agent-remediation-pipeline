@@ -108,3 +108,33 @@ def test_zip_answer_is_returned(monkeypatch):
     monkeypatch.setattr(ingest.urllib.request, "urlopen", lambda request, timeout: response)
 
     assert fetch_archive(DAY) == archive
+
+
+def test_a_briefly_locked_folder_is_renamed_after_a_retry(tmp_path, monkeypatch):
+    path_class = type(tmp_path)
+    real_rename = path_class.rename
+    failures = iter([PermissionError("locked"), PermissionError("locked")])
+
+    def flaky_rename(self, target):
+        error = next(failures, None)
+        if error:
+            raise error
+        return real_rename(self, target)
+
+    monkeypatch.setattr(path_class, "rename", flaky_rename)
+    monkeypatch.setattr(ingest.time, "sleep", lambda seconds: None)
+
+    assert ingest_day(DAY, raw_dir=tmp_path, fetch=lambda d: make_zip())["status"] == "ingested"
+    assert (tmp_path / "2026-09-10" / "prices.csv").exists()
+
+
+def test_a_folder_that_stays_locked_still_fails(tmp_path, monkeypatch):
+    def locked(self, target):
+        raise PermissionError("locked")
+
+    monkeypatch.setattr(type(tmp_path), "rename", locked)
+    monkeypatch.setattr(ingest.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(PermissionError):
+        ingest_day(DAY, raw_dir=tmp_path, fetch=lambda d: make_zip())
+    assert not (tmp_path / "2026-09-10").exists()
