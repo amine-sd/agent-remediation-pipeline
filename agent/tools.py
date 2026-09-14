@@ -28,8 +28,10 @@ TICKETS = Path("logs/tickets.jsonl")
 CAUSES = ["schema_drift", "null_spike", "duplicate_rows", "freshness", "unit_drift",
           "source_error", "none", "unknown"]
 MAX_RUNS = 5
-MAX_ROWS = 50
-MAX_OUTPUT_CHARS = 1500
+# Small on purpose: the model reads everything in a context of 4096 tokens, shared by the
+# system prompt, the schemas and every tool answer of the investigation.
+MAX_ROWS = 20
+MAX_OUTPUT_CHARS = 600
 # read_only alone still lets `COPY ... TO` write a file on disk (checked with DuckDB 1.5.5):
 # external access is switched off too, and locked so that a query cannot switch it back on.
 LOCKED = {"enable_external_access": False, "lock_configuration": True}
@@ -224,7 +226,7 @@ SCHEMAS = [
                       "description": "How many recent runs to return. Default 1."}},
             []),
     _schema("query_warehouse",
-            "Run one read-only SQL query (DuckDB) on the warehouse, at most 50 rows back. Tables: "
+            f"Run one read-only SQL query (DuckDB) on the warehouse, at most {MAX_ROWS} rows back. Tables: "
             "fct_prices (snapshot_date, station_id, fuel_id, fuel_name, price_updated_at, "
             "price_eur_per_liter); dim_stations (station_id, latitude, longitude, postal_code, "
             "department_code, location_type, address, city, has_24h_automat, services, "
@@ -237,10 +239,13 @@ SCHEMAS = [
             "name to get everything upstream and downstream of it.",
             {"model": {"type": "string", "description": "Optional model name, for example fct_prices."}},
             []),
+    # No date argument for the model: given one, a 3B model compared the wrong day (J10). The
+    # function keeps the parameter for tests and the benchmark; call_tool never passes it.
     _schema("compare_with_previous_run",
-            "Compare one day with the previous day in the warehouse: row counts, empty values, "
-            "average price per fuel with ratios, and the raw files' columns and row counts.",
-            {"data_date": DAY_ARGUMENT},
+            "Compare the day of the last run (the data date in the alert) with the previous day "
+            "in the warehouse: row counts, empty values, average price per fuel with ratios, and "
+            "the raw files' columns and row counts.",
+            {},
             []),
     _schema("rerun_step",
             "Run one pipeline step again and get how it ended.",

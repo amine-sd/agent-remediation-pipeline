@@ -160,6 +160,12 @@ def test_call_tool_refuses_what_the_schema_does_not_declare():
     assert "missing ['sql']" in call_tool("query_warehouse", {})["error"]
 
 
+def test_the_model_cannot_choose_the_day_to_compare():
+    error = call_tool("compare_with_previous_run", {"data_date": "2026-09-12"})["error"]
+
+    assert "unexpected ['data_date']" in error
+
+
 def test_call_tool_turns_a_failure_into_an_answer(monkeypatch):
     def broken(**kwargs):
         raise RuntimeError("warehouse locked")
