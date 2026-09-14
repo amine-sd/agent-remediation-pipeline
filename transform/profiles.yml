@@ -1,0 +1,9 @@
+# Paths are relative to the repository root: dbt is always run from there, with
+# --project-dir transform --profiles-dir transform.
+fuel_prices:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: data/warehouse.duckdb
+      threads: 1

@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: dim_stations
+    description: Une ligne par station, avec ses attributs les plus récents.
+    columns:
+      - name: station_id
+        data_tests: [not_null, unique]
+      - name: department_code
+        data_tests: [not_null]
+      - name: location_type
+        description: "R : route, A : autoroute."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["R", "A"]
+
+  - name: fct_prices
+    description: Une ligne par jour, station et carburant, avec le prix en vigueur ce jour-là.
+    columns:
+      - name: price_key
+        data_tests: [not_null, unique]
+      - name: station_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_stations')
+                field: station_id
+      - name: fuel_name
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["Gazole", "SP95", "SP98", "E10", "E85", "GPLc"]
+      - name: price_eur_per_liter
+        data_tests: [not_null]
+
+  - name: agg_prices_by_department
+    description: Prix moyen, minimum et maximum par département, carburant et jour.
+    columns:
+      - name: agg_key
+        data_tests: [not_null, unique]
+      - name: avg_price
+        data_tests: [not_null]

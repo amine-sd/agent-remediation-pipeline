@@ -1,0 +1,15 @@
+name: fuel_prices
+version: "1.0"
+profile: fuel_prices
+
+model-paths: ["models"]
+test-paths: ["tests"]
+target-path: target
+clean-targets: [target, dbt_packages]
+
+models:
+  fuel_prices:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

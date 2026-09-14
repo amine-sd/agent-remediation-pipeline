@@ -1,0 +1,20 @@
+version: 2
+
+# The raw layer is the CSV files written by pipeline/ingest.py, one folder per day.
+# all_varchar: everything is read as text, typing happens in staging.
+# union_by_name: columns are matched by name across days, never by position, so a renamed
+# column cannot silently land under another column's name.
+sources:
+  - name: raw
+    description: Fichiers déposés par l'ingestion, un dossier par jour dans data/raw/.
+    tables:
+      - name: stations
+        description: Une ligne par station et par jour, telle que la source l'écrit.
+        config:
+          meta:
+            external_location: "read_csv('data/raw/*/stations.csv', header = true, all_varchar = true, union_by_name = true, filename = true)"
+      - name: prices
+        description: Une ligne par station, carburant et jour, telle que la source l'écrit.
+        config:
+          meta:
+            external_location: "read_csv('data/raw/*/prices.csv', header = true, all_varchar = true, union_by_name = true, filename = true)"
