@@ -128,6 +128,14 @@ def test_arguments_sent_as_a_json_string_are_decoded(monkeypatch):
     assert executed == [{"runs": 2}]
 
 
+def test_the_alert_says_when_the_run_is_the_agents_own_rerun():
+    view = {"run_id": "r3", "mode": "single-step", "triggered_by": "agent", "data_date": "2026-09-13",
+            "steps": [{"step": "ingest", "status": "failed",
+                       "error": "HTTPError: HTTP Error 500: Internal Server Error"}]}
+
+    assert "rerun that you requested earlier" in alert(view)
+
+
 def test_the_alert_shows_what_an_on_call_engineer_would_see_first():
     view = {"run_id": "r2", "mode": "full", "data_date": "2026-09-13", "steps": [
         {"step": "ingest", "status": "success",

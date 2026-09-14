@@ -81,6 +81,15 @@ def test_a_traceback_is_kept_apart_from_the_output(tmp_path):
     assert "output" not in entry
 
 
+def test_the_journal_says_who_asked_for_the_run(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    run_pipeline(DAY, steps=("ingest",), journal=journal, step_functions={"ingest": ok()})
+    run_pipeline(DAY, steps=("ingest",), journal=journal, step_functions={"ingest": ok()},
+                 triggered_by="agent")
+
+    assert [e["triggered_by"] for e in read_journal(journal)] == ["cli", "agent"]
+
+
 def test_two_runs_in_the_same_second_get_different_ids(tmp_path):
     journal = tmp_path / "journal.jsonl"
     for _ in range(2):

@@ -82,8 +82,9 @@ def read_logs(runs: int = 1, journal: Path = JOURNAL) -> dict:
     views = []
     for run_id in run_ids:
         steps = [e for e in entries if e["run_id"] == run_id]
-        views.append({"run_id": run_id, "mode": steps[0]["mode"], "data_date": steps[0]["data_date"],
-                      "steps": [_step_view(e) for e in steps]})
+        views.append({"run_id": run_id, "mode": steps[0]["mode"],
+                      "triggered_by": steps[0].get("triggered_by", "cli"),
+                      "data_date": steps[0]["data_date"], "steps": [_step_view(e) for e in steps]})
     return {"runs": views}
 
 
@@ -183,7 +184,7 @@ def rerun_step(step: str, data_date: str | None = None, journal: Path = JOURNAL,
     if step not in STEPS:
         return {"error": f"unknown step {step!r}; steps: {list(STEPS)}"}
     day = _data_date(data_date, journal)
-    runner(date.fromisoformat(day), steps=(step,), journal=journal)
+    runner(date.fromisoformat(day), steps=(step,), journal=journal, triggered_by="agent")
     entry = read_journal(journal)[-1]
     result = {"run_id": entry["run_id"], "step": step, "data_date": day, "status": entry["status"]}
     if entry.get("error"):

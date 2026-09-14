@@ -50,6 +50,7 @@ def last_run(entries: list[dict]) -> dict:
     return {
         "run_id": run_id,
         "mode": steps[0]["mode"],
+        "triggered_by": steps[0].get("triggered_by", "cli"),
         "data_date": steps[0]["data_date"],
         "status": "failed" if any(e["status"] == "failed" for e in steps) else "success",
         "steps": [_step(e) for e in steps],

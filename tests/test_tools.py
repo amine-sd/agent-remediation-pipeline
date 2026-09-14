@@ -110,8 +110,8 @@ def test_compare_on_a_day_that_never_arrived(state):
 def test_rerun_step_runs_the_step_and_reports_how_it_ended(state):
     calls = []
 
-    def runner(day, steps, journal):
-        calls.append((day.isoformat(), steps))
+    def runner(day, steps, journal, triggered_by):
+        calls.append((day.isoformat(), steps, triggered_by))
         with journal.open("a", encoding="utf-8") as f:
             f.write(json.dumps({"run_id": "r3", "step": "ingest", "status": "failed",
                                 "error": "HTTPError: HTTP Error 500: Internal Server Error"}) + "\n")
@@ -119,7 +119,7 @@ def test_rerun_step_runs_the_step_and_reports_how_it_ended(state):
 
     result = rerun_step("ingest", journal=state["journal"], runner=runner)
 
-    assert calls == [("2026-09-12", ("ingest",))]
+    assert calls == [("2026-09-12", ("ingest",), "agent")]
     assert result == {"run_id": "r3", "step": "ingest", "data_date": "2026-09-12",
                       "status": "failed", "error": "HTTPError: HTTP Error 500: Internal Server Error"}
     assert "error" in rerun_step("deploy", journal=state["journal"], runner=runner)

@@ -78,8 +78,13 @@ def _append(journal: Path, entry: dict) -> None:
 
 
 def run_pipeline(day: date, steps: tuple[str, ...] = STEPS, journal: Path = JOURNAL,
-                 step_functions: dict[str, Callable[[], dict]] | None = None) -> bool:
-    """Run the steps in order. After a failure, the following steps are journaled as skipped."""
+                 step_functions: dict[str, Callable[[], dict]] | None = None,
+                 triggered_by: str = "cli") -> bool:
+    """Run the steps in order. After a failure, the following steps are journaled as skipped.
+
+    `triggered_by` says who asked for the run: "cli" (a person, or a schedule) or "agent" (a
+    rerun the guardrail allowed). It is how the agent knows that a rerun already happened.
+    """
     step_functions = step_functions or {
         "ingest": lambda: run_ingest(day),
         "transform": lambda: run_dbt("run"),
@@ -90,8 +95,8 @@ def run_pipeline(day: date, steps: tuple[str, ...] = STEPS, journal: Path = JOUR
     mode = "full" if tuple(steps) == STEPS else "single-step"
     failed = False
     for step in steps:
-        entry = {"run_id": run_id, "mode": mode, "data_date": day.isoformat(), "step": step,
-                 "started_at": _now()}
+        entry = {"run_id": run_id, "mode": mode, "triggered_by": triggered_by,
+                 "data_date": day.isoformat(), "step": step, "started_at": _now()}
         if failed:
             entry.update(status="skipped", output="previous step failed")
         else:

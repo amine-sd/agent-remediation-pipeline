@@ -75,6 +75,8 @@ def alert(view: dict) -> str:
     failed = any(step["status"] == "failed" for step in view["steps"])
     lines = [f"Daily pipeline run for data date {view['data_date']} (run {view['run_id']}): "
              f"{'FAILED' if failed else 'succeeded'}."]
+    if view.get("triggered_by") == "agent":
+        lines.append("This run is a rerun that you requested earlier for the same incident.")
     for step in view["steps"]:
         line = f"- {step['step']}: {step['status']}"
         if step.get("error"):
