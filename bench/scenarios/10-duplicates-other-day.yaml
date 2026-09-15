@@ -1,0 +1,14 @@
+id: 10-duplicates-other-day
+title: Le jour ajouté deux fois, un autre jour
+day: "2026-09-12"
+fault:
+  name: duplicate_rows
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [duplicate_rows]
+  decision: escalate
+why: >-
+  Même règle que 03 (doublons : toujours escalader), sur le 12/09, pour ne pas tout mesurer sur un
+  seul jour.

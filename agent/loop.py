@@ -10,6 +10,7 @@ framework would do in its place, except that here every step is visible and meas
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Callable
 
@@ -17,11 +18,12 @@ from agent.ollama import chat as ollama_chat
 from agent.tools import SCHEMAS, call_tool
 from agent.verdict import VERDICT_SCHEMA, InvalidVerdict, validate
 
-MODEL = "qwen2.5:3b"
+# The model is a parameter, so that the same benchmark can be replayed with another model.
+# Default: qwen2.5:3b with a context of 4096, the model shared with another project on this
+# machine (asking for another context size would make Ollama reload it at every switch).
+MODEL = os.environ.get("AGENT_MODEL", "qwen2.5:3b")
 # temperature 0 and a fixed seed: measured runs must be reproducible (docs/mesures.md).
-# num_ctx 4096: the model is shared with another project that loaded it with this context;
-# asking for another size would make Ollama reload it at every switch between projects.
-OPTIONS = {"temperature": 0, "seed": 0, "num_ctx": 4096}
+OPTIONS = {"temperature": 0, "seed": 0, "num_ctx": int(os.environ.get("AGENT_NUM_CTX", "4096"))}
 TOOL_BUDGET = 10
 MAX_TOOL_RESULT_CHARS = 2500
 # Until the guardrails exist, the agent only reads: no rerun, no ticket (autonomy policy).

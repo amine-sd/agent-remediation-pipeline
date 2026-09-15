@@ -1,0 +1,14 @@
+id: 05-unit-drift
+title: Les prix arrivent en millièmes d'euro
+day: "2026-09-13"
+fault:
+  name: unit_drift
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [unit_drift]
+  decision: escalate
+why: >-
+  Politique, dérive d'unité : toujours escalader. Rien ne casse mais les chiffres sont faux, et
+  seul un humain peut confirmer la nouvelle unité.

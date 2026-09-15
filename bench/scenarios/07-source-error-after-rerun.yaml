@@ -1,0 +1,14 @@
+id: 07-source-error-after-rerun
+title: L'erreur 500 persiste après une relance de l'agent
+day: "2026-09-13"
+fault:
+  name: source_error
+  params: {}
+context:
+  already_rerun: true
+expected:
+  causes: [source_error]
+  decision: escalate
+why: >-
+  Politique, erreur 500 déjà relancée : escalader. Une relance de l'agent a déjà échoué, la source
+  est durablement cassée.

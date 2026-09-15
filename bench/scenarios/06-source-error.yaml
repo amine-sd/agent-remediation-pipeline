@@ -1,0 +1,14 @@
+id: 06-source-error
+title: La source répond par une erreur 500
+day: "2026-09-13"
+fault:
+  name: source_error
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [source_error]
+  decision: rerun_ingestion
+why: >-
+  Politique, erreur 500 pas encore relancée : relancer l'ingestion, l'erreur est peut-être
+  passagère côté source, et la relance est sans risque.

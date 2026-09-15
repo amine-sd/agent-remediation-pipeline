@@ -1,0 +1,14 @@
+id: 03-duplicates
+title: Le jour est ajouté deux fois
+day: "2026-09-13"
+fault:
+  name: duplicate_rows
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [duplicate_rows]
+  decision: escalate
+why: >-
+  Politique, doublons : toujours escalader. L'ingestion est censée être idempotente, des doublons
+  signalent un défaut, et dédupliquer reviendrait à écrire dans les données.

@@ -1,0 +1,14 @@
+id: 04-freshness
+title: Le fichier du jour n'est pas arrivé
+day: "2026-09-13"
+fault:
+  name: freshness
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [freshness]
+  decision: rerun_ingestion
+why: >-
+  Politique, fraîcheur pas encore relancée : relancer l'ingestion, le fichier a pu arriver
+  entre-temps.

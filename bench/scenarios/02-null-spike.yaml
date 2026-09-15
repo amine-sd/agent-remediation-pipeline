@@ -1,0 +1,15 @@
+id: 02-null-spike
+title: 30 % des prix arrivent vides
+day: "2026-09-13"
+fault:
+  name: null_spike
+  params: {fraction: 0.3}
+context:
+  already_rerun: false
+expected:
+  causes: [null_spike]
+  decision: escalate
+why: >-
+  Politique, pic de nulls au-dessus du seuil d'ampleur : escalader, relancer retéléchargerait les
+  mêmes données. 30 % de prix vides contre 0 % d'habitude dans nos fichiers : au-dessus de tout
+  seuil raisonnable, en attendant que le seuil soit fixé.

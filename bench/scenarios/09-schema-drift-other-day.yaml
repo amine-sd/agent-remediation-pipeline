@@ -1,0 +1,14 @@
+id: 09-schema-drift-other-day
+title: La colonne des prix renommée, un autre jour
+day: "2026-09-12"
+fault:
+  name: schema_drift
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [schema_drift]
+  decision: escalate
+why: >-
+  Même règle que 01 (dérive de schéma : toujours escalader), sur le 12/09, pour ne pas tout
+  mesurer sur un seul jour.

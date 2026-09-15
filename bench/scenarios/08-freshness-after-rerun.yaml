@@ -1,0 +1,14 @@
+id: 08-freshness-after-rerun
+title: Le fichier n'est toujours pas là après une relance de l'agent
+day: "2026-09-13"
+fault:
+  name: freshness
+  params: {}
+context:
+  already_rerun: true
+expected:
+  causes: [freshness]
+  decision: escalate
+why: >-
+  Politique, fraîcheur déjà relancée : escalader. Le fichier n'arrive toujours pas, un humain doit
+  voir avec la source.

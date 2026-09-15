@@ -1,0 +1,14 @@
+id: 01-schema-drift
+title: La source renomme la colonne des prix
+day: "2026-09-13"
+fault:
+  name: schema_drift
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [schema_drift]
+  decision: escalate
+why: >-
+  Politique, dérive de schéma : toujours escalader. Corriger demande de modifier le code, et
+  relancer retéléchargerait le même schéma.
