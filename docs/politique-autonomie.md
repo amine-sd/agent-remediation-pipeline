@@ -117,11 +117,12 @@ Pour trois familles, le contexte change la décision. C'est ce qui fait que la m
 mesure autre chose que le diagnostic : trouver la bonne famille ne suffit pas, il faut aussi lire
 la situation.
 
-## Point ouvert
+## Seuil d'ampleur des nulls
 
-**Le seuil d'ampleur des nulls** n'est pas encore fixé. Il le sera une fois mesuré le taux de
-valeurs manquantes habituel des vraies données : sur un flux observé, environ 2 % des lignes n'ont
-déjà pas de prix. Un seuil choisi avant de connaître ce taux serait arbitraire.
+**1 % des prix du jour.** Dans nos fichiers, un jour normal n'a aucun prix vide : une station sans
+prix n'a simplement pas de ligne de prix. Sous 1 % (environ 300 prix), un pic de nulls est un petit
+accroc, classé sans suite ; au-dessus, c'est une dégradation de la source, et l'agent escalade. Le
+seuil a été fixé une fois ce taux habituel mesuré, pas avant.
 
 ## Traçabilité
 

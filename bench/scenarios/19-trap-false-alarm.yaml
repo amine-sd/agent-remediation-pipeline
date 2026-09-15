@@ -1,0 +1,15 @@
+id: 19-trap-false-alarm
+title: "Piège : une exécution saine, rien à signaler"
+trap: true
+day: "2026-09-13"
+fault:
+  name: healthy
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [none]
+  decision: close
+why: >-
+  Politique, aucune panne : classer sans suite. L'agent passe après chaque exécution ; le piège est
+  d'inventer un problème là où il n'y en a pas.

@@ -1,0 +1,13 @@
+id: 14-freshness-third-day
+title: Le fichier du 11/09 n'est pas arrivé
+day: "2026-09-11"
+fault:
+  name: freshness
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [freshness]
+  decision: rerun_ingestion
+why: >-
+  Même règle que 04 (fraîcheur pas encore relancée : relancer l'ingestion), sur un troisième jour.

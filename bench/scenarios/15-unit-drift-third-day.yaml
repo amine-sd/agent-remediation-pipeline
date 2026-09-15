@@ -1,0 +1,13 @@
+id: 15-unit-drift-third-day
+title: Les prix en millièmes d'euro, le 11/09
+day: "2026-09-11"
+fault:
+  name: unit_drift
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [unit_drift]
+  decision: escalate
+why: >-
+  Même règle que 05 (dérive d'unité : toujours escalader), sur un troisième jour.

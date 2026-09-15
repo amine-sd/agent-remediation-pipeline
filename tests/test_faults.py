@@ -103,6 +103,43 @@ def test_an_armed_data_fault_reads_the_clean_backup_and_tampers(tmp_path):
     assert len(faults.tamper_for(DAY, armed("duplicate_rows"))(tables(2))["prices.csv"][1]) == 4
 
 
+def test_a_truncated_delivery_drops_half_the_stations_with_their_prices():
+    stations = [{"pdv_id": str(i)} for i in range(10)]
+    prices = [{"pdv_id": str(i), "prix_valeur": "2.3"} for i in range(10)]
+    day = {"stations.csv": (["pdv_id"], stations), "prices.csv": (["pdv_id", "prix_valeur"], prices)}
+
+    truncated = faults.drop_half_the_stations(day, {})
+
+    kept = {s["pdv_id"] for s in truncated["stations.csv"][1]}
+    assert len(kept) == 5
+    assert {p["pdv_id"] for p in truncated["prices.csv"][1]} == kept
+
+
+def two_faults(*names):
+    return {"faults": [{"name": n, "params": {}} for n in names], "date": "2026-09-13"}
+
+
+def test_two_data_faults_are_applied_one_after_the_other():
+    rows = faults.tamper_for(DAY, two_faults("unit_drift", "duplicate_rows"))(tables(2))["prices.csv"][1]
+
+    assert [row["prix_valeur"] for row in rows] == ["2300"] * 4
+
+
+def test_a_source_fault_wins_over_a_data_fault(tmp_path):
+    fetch = faults.fetch_for(DAY, two_faults("unit_drift", "source_error"), backup_dir=tmp_path)
+
+    with pytest.raises(urllib.error.HTTPError):
+        fetch(DAY)
+
+
+def test_a_healthy_delivery_changes_nothing_and_reads_the_clean_archive(tmp_path):
+    (tmp_path / "2026-09-13").mkdir()
+    (tmp_path / "2026-09-13" / "source.zip").write_bytes(b"clean archive")
+
+    assert faults.tamper_for(DAY, armed("healthy"))(tables(3)) == tables(3)
+    assert faults.fetch_for(DAY, armed("healthy"), backup_dir=tmp_path)(DAY) == b"clean archive"
+
+
 def test_the_ingestion_writes_what_the_fault_delivers(tmp_path):
     summary = ingest_day(DAY, raw_dir=tmp_path, fetch=lambda day: archive(),
                          tamper=faults.tamper_for(DAY, armed("schema_drift")))

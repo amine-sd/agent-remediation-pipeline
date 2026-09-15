@@ -1,0 +1,13 @@
+id: 16-source-error-third-day
+title: La source répond par une erreur 500, le 11/09
+day: "2026-09-11"
+fault:
+  name: source_error
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [source_error]
+  decision: rerun_ingestion
+why: >-
+  Même règle que 06 (erreur 500 pas encore relancée : relancer l'ingestion), sur un troisième jour.

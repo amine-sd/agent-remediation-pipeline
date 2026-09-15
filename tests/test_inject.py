@@ -35,8 +35,21 @@ def test_inject_takes_the_day_out_and_arms_the_fault(env):
     assert not (paths["raw_dir"] / "2026-09-13").exists()
     assert snapshot(paths["backup_dir"] / "2026-09-13") == before
     armed = json.loads(paths["switch"].read_text(encoding="utf-8"))
-    assert (armed["name"], armed["date"], armed["params"]) == ("null_spike", "2026-09-13", {"fraction": 0.3})
+    assert armed["faults"] == [{"name": "null_spike", "params": {"fraction": 0.3}}]
+    assert armed["date"] == "2026-09-13"
     assert rebuilds == [1]
+
+
+def test_several_faults_can_be_armed_together_and_reset_at_once(env):
+    paths, _ = env
+    before = snapshot(paths["raw_dir"] / "2026-09-13")
+
+    inject.inject([{"name": "unit_drift"}, {"name": "duplicate_rows"}], DAY, **paths)
+
+    armed = json.loads(paths["switch"].read_text(encoding="utf-8"))
+    assert [f["name"] for f in armed["faults"]] == ["unit_drift", "duplicate_rows"]
+    assert inject.reset(**paths).startswith("reset: unit_drift, duplicate_rows removed")
+    assert snapshot(paths["raw_dir"] / "2026-09-13") == before
 
 
 def test_reset_puts_everything_back(env):

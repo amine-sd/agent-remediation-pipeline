@@ -1,4 +1,4 @@
-"""Inject one of the fault families into the pipeline, or undo it.
+"""Inject one or several faults into the pipeline, or undo them.
 
     python inject.py --scenario 1 [--date 2026-09-13] [--fraction 0.3]
     python inject.py --reset
@@ -6,7 +6,8 @@
 Injecting backs up the target day, takes it out of the raw layer and the warehouse, arms the
 fault, then runs the pipeline for that day: the day is ingested again and suffers the fault
 through the real code path, as a real daily run would. --reset puts the backed-up day back
-and rebuilds the warehouse, so the pipeline is exactly as it was.
+and rebuilds the warehouse, so the pipeline is exactly as it was. Several faults can be armed
+together on one day (the benchmark does it for its "two simultaneous faults" trap).
 """
 
 from __future__ import annotations
@@ -24,7 +25,8 @@ from pipeline.ingest import RAW_DIR
 from pipeline.run import run_dbt, run_pipeline
 
 SCENARIOS = {1: "schema_drift", 2: "null_spike", 3: "duplicate_rows",
-             4: "freshness", 5: "unit_drift", 6: "source_error"}
+             4: "freshness", 5: "unit_drift", 6: "source_error", 7: "healthy",
+             8: "truncated_delivery"}
 
 
 def latest_day(raw_dir: Path = RAW_DIR) -> date:
@@ -43,21 +45,25 @@ def rebuild_warehouse() -> None:
         raise RuntimeError("dbt run failed while rebuilding the warehouse:\n" + result["output"])
 
 
-def inject(name: str, day: date, params: dict | None = None, raw_dir: Path = RAW_DIR,
-           switch: Path = faults.SWITCH, backup_dir: Path = faults.BACKUP_DIR,
+def inject(to_arm: str | list[dict], day: date, params: dict | None = None,
+           raw_dir: Path = RAW_DIR, switch: Path = faults.SWITCH,
+           backup_dir: Path = faults.BACKUP_DIR,
            rebuild: Callable[[], None] = rebuild_warehouse) -> dict:
+    """Arm one fault (a name, with `params`) or several (a list of {"name", "params"})."""
     if switch.exists():
         raise RuntimeError(f"a fault is already armed ({switch.as_posix()}); run --reset first")
     folder = raw_dir / day.isoformat()
     if not folder.exists():
         raise RuntimeError(f"{folder.as_posix()} does not exist: there is no ingested day to break")
+    to_arm = ([{"name": to_arm, "params": params or {}}] if isinstance(to_arm, str)
+              else [{"name": f["name"], "params": f.get("params") or {}} for f in to_arm])
 
     backup = backup_dir / day.isoformat()
     shutil.rmtree(backup, ignore_errors=True)
     backup.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(folder), str(backup))
 
-    fault = {"name": name, "date": day.isoformat(), "params": params or {},
+    fault = {"faults": to_arm, "date": day.isoformat(),
              "armed_at": datetime.now().isoformat(timespec="seconds")}
     switch.parent.mkdir(parents=True, exist_ok=True)
     switch.write_text(json.dumps(fault, indent=2), encoding="utf-8")
@@ -76,7 +82,8 @@ def reset(raw_dir: Path = RAW_DIR, switch: Path = faults.SWITCH,
     shutil.move(str(backup), str(folder))
     switch.unlink()
     rebuild()
-    return f"reset: {fault['name']} removed, {fault['date']} restored, warehouse rebuilt"
+    names = ", ".join(f["name"] for f in faults.armed_faults(fault))
+    return f"reset: {names} removed, {fault['date']} restored, warehouse rebuilt"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -99,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     day = args.date or latest_day()
     params = {"fraction": args.fraction} if name == "null_spike" else {}
     fault = inject(name, day, params)
-    print(f"armed: {fault['name']} on {fault['date']} {fault['params'] or ''}".rstrip())
+    print(f"armed: {name} on {fault['date']} {params or ''}".rstrip())
     run_pipeline(day)  # the incident: a normal daily run that suffers the fault
     return 0
 

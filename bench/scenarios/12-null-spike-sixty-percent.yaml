@@ -1,0 +1,14 @@
+id: 12-null-spike-sixty-percent
+title: 60 % des prix arrivent vides, le 11/09
+day: "2026-09-11"
+fault:
+  name: null_spike
+  params: {fraction: 0.6}
+context:
+  already_rerun: false
+expected:
+  causes: [null_spike]
+  decision: escalate
+why: >-
+  Politique, pic de nulls au-dessus du seuil de 1 % : escalader. Même famille que 02, avec une autre
+  ampleur et un autre jour.

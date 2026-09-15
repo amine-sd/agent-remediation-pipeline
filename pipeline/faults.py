@@ -1,9 +1,9 @@
-"""The fault switch: the injector arms a fault here, and the next normal run suffers it.
+"""The fault switch: the injector arms one or more faults here, and the next normal run suffers them.
 
-A fault is applied inside the real ingestion path: at the download for the source faults,
-after the download and before the files are written for the data faults. Everything the agent
-reads afterwards (journal, raw files, warehouse) therefore looks like a real incident, and
-nothing in the journal says that a fault was injected.
+A fault is applied inside the real ingestion path: at the download for the source faults, after
+the download and before the files are written for the data faults. Everything the agent reads
+afterwards (journal, raw files, warehouse) therefore looks like a real incident, and nothing in
+the journal says that a fault was injected.
 """
 
 from __future__ import annotations
@@ -27,6 +27,12 @@ MISSING_DAY_PAGE = (b'<!DOCTYPE html><html lang="fr"><head><title>Prix des carbu
 
 # {"prices.csv": (columns, rows), "stations.csv": (columns, rows)}, as the ingestion builds it.
 Tables = dict[str, tuple[list[str], list[dict]]]
+
+
+def deliver_as_is(tables: Tables, params: dict) -> Tables:
+    """No fault: the day is delivered as published. A healthy run goes through exactly the same
+    path as an injected one, so a false alarm cannot be told apart by anything technical."""
+    return tables
 
 
 def rename_price_column(tables: Tables, params: dict) -> Tables:
@@ -70,6 +76,18 @@ def scale_prices(tables: Tables, params: dict) -> Tables:
     return tables
 
 
+def drop_half_the_stations(tables: Tables, params: dict) -> Tables:
+    """Outside the six families: a truncated delivery, half of the stations missing with their
+    prices. No test fails, only the volume shows it. Seeded, so the same stations every time."""
+    station_columns, stations = tables["stations.csv"]
+    price_columns, prices = tables["prices.csv"]
+    ids = sorted({s["pdv_id"] for s in stations})
+    dropped = set(random.Random(SEED).sample(ids, round(len(ids) * params.get("share", 0.5))))
+    tables["stations.csv"] = (station_columns, [s for s in stations if s["pdv_id"] not in dropped])
+    tables["prices.csv"] = (price_columns, [p for p in prices if p["pdv_id"] not in dropped])
+    return tables
+
+
 def _missing_archive(day: date) -> bytes:
     # Goes through the real check, so the error reads exactly like a real missing day.
     return check_archive(day, MISSING_DAY_PAGE, "text/html")
@@ -81,10 +99,12 @@ def _server_error(day: date) -> bytes:
 
 
 TAMPERS: dict[str, Callable[[Tables, dict], Tables]] = {
+    "healthy": deliver_as_is,
     "schema_drift": rename_price_column,
     "null_spike": blank_prices,
     "duplicate_rows": duplicate_prices,
     "unit_drift": scale_prices,
+    "truncated_delivery": drop_half_the_stations,
 }
 SOURCE_FAULTS: dict[str, Callable[[date], bytes]] = {
     "freshness": _missing_archive,
@@ -96,24 +116,41 @@ def armed(switch: Path = SWITCH) -> dict | None:
     return json.loads(switch.read_text(encoding="utf-8")) if switch.exists() else None
 
 
+def armed_faults(fault: dict) -> list[dict]:
+    """The faults held by the switch, as a list of {"name", "params"} (one or several)."""
+    if "faults" in fault:
+        return fault["faults"]
+    return [{"name": fault["name"], "params": fault.get("params", {})}]
+
+
 def _targets(day: date, fault: dict | None) -> bool:
     return fault is not None and fault["date"] == day.isoformat()
 
 
 def fetch_for(day: date, fault: dict | None, backup_dir: Path = BACKUP_DIR) -> Callable[[date], bytes]:
-    """Normally the network. While a fault is armed for this day: a failing source for the
-    source faults (on every rerun, until --reset), otherwise the backed-up clean archive, so an
-    injected run needs no network and gives the same result every time."""
+    """Normally the network. While faults are armed for this day: a failing source if one of them
+    is a source fault (on every rerun, until --reset; nothing else can then arrive), otherwise the
+    backed-up clean archive, so an injected run needs no network and gives the same result."""
     if not _targets(day, fault):
         return fetch_archive
-    if fault["name"] in SOURCE_FAULTS:
-        return SOURCE_FAULTS[fault["name"]]
+    for armed_fault in armed_faults(fault):
+        if armed_fault["name"] in SOURCE_FAULTS:
+            return SOURCE_FAULTS[armed_fault["name"]]
     clean = backup_dir / fault["date"] / "source.zip"
     return lambda _day: clean.read_bytes()
 
 
 def tamper_for(day: date, fault: dict | None) -> Callable[[Tables], Tables] | None:
-    if not _targets(day, fault) or fault["name"] not in TAMPERS:
+    """The data faults armed for this day, applied one after the other in the order given."""
+    if not _targets(day, fault):
         return None
-    tamper, params = TAMPERS[fault["name"]], fault.get("params", {})
-    return lambda tables: tamper(tables, params)
+    steps = [(TAMPERS[f["name"]], f.get("params") or {}) for f in armed_faults(fault)
+             if f["name"] in TAMPERS]
+    if not steps:
+        return None
+
+    def tamper(tables: Tables) -> Tables:
+        for apply, params in steps:
+            tables = apply(tables, params)
+        return tables
+    return tamper

@@ -41,8 +41,10 @@ combinent deux pannes. Chaque cause est prise dans cette énumération :
 l'ensemble attendu. Pas de crédit partiel : trouver une panne sur deux, c'est faux. Un crédit
 partiel ferait monter le score sans que l'agent ait mieux compris.
 
-`unknown` n'est jamais une réponse correcte, mais elle mène toujours à l'escalade : elle peut
-coûter du temps humain, jamais causer de dégât.
+`unknown` est la bonne réponse pour une panne hors des six familles (un scénario piège le prévoit :
+une livraison tronquée), et seulement dans ce cas. Pour une panne d'une famille connue, elle est
+fausse ; elle mène de toute façon à l'escalade : elle peut coûter du temps humain, jamais causer de
+dégât.
 
 **Le rapport.** Le nombre de scénarios corrects sur 20, puis le détail par famille.
 

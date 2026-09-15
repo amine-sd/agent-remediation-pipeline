@@ -3,8 +3,8 @@
 import pytest
 
 from bench import runner
-from bench.runner import (InvalidScenario, check, fresh_journal, load_scenarios, policy_decision,
-                          score, summarize)
+from bench.runner import (InvalidScenario, check, expected_decision, fresh_journal,
+                          load_scenarios, policy_decision, score, summarize)
 
 
 def valid(**changes):
@@ -21,15 +21,17 @@ def agent_said(causes, decision):
                                                "justification": "j", "proposed_action": "a"}}
 
 
-def test_the_ten_scenarios_load_and_agree_with_the_policy():
+def test_the_twenty_scenarios_load_and_agree_with_the_policy():
     scenarios = load_scenarios()
 
-    assert len(scenarios) == 10
-    assert len({s["id"] for s in scenarios}) == 10
+    assert len(scenarios) == 20
+    assert len({s["id"] for s in scenarios}) == 20
+    assert sum(bool(s.get("trap")) for s in scenarios) == 4
 
 
 @pytest.mark.parametrize("changes, problem", [
     ({"expected": {"causes": ["source_error"], "decision": "escalate"}}, "contradicts the policy"),
+    ({"expected": {"causes": ["unit_drift"], "decision": "rerun_ingestion"}}, "do not match the injected faults"),
     ({"fault": {"name": "gremlins"}}, "unknown fault"),
     ({"expected": {"causes": ["gremlins"], "decision": "rerun_ingestion"}}, "unknown cause"),
     ({"day": "13/09/2026"}, "is not YYYY-MM-DD"),
@@ -52,6 +54,26 @@ def test_the_policy_table():
     assert policy_decision("source_error", already_rerun=True) == "escalate"
     assert policy_decision("freshness", already_rerun=True) == "escalate"
     assert policy_decision("unit_drift", already_rerun=False) == "escalate"
+    assert policy_decision("healthy", already_rerun=False) == "close"
+    assert policy_decision("truncated_delivery", already_rerun=False) == "escalate"
+
+
+def test_a_null_spike_under_the_threshold_is_closed():
+    assert policy_decision("null_spike", False, {"fraction": 0.003}) == "close"
+    assert policy_decision("null_spike", False, {"fraction": 0.3}) == "escalate"
+
+
+def test_with_several_faults_the_most_cautious_decision_wins():
+    assert expected_decision([{"name": "unit_drift"}, {"name": "duplicate_rows"}], False) == "escalate"
+    assert expected_decision([{"name": "healthy"}, {"name": "source_error"}], False) == "rerun_ingestion"
+
+
+def test_a_fault_outside_the_families_expects_unknown():
+    scenario = valid(fault={"name": "truncated_delivery"},
+                     expected={"causes": ["unknown"], "decision": "escalate"})
+
+    assert check(scenario, "test.yaml")["expected"]["causes"] == ["unknown"]
+    assert score(scenario, agent_said(["unknown"], "escalate"))["cause_correct"]
 
 
 @pytest.mark.parametrize("expected, decided, cell", [
@@ -93,6 +115,19 @@ def test_the_summary_puts_the_dangerous_cell_first_with_its_scenarios():
 
     assert summary["dangerous"] == ["a"] and summary["causes_correct"] == 1
     assert lines[1].startswith("dangerous") and "1 of 2 -> a" in lines[1]
+
+
+def test_a_trap_is_passed_only_with_both_the_causes_and_the_decision_right():
+    trap = {"trap": True, "expected": {"causes": ["none"], "decision": "close"}}
+    records = [score(valid(id="t1", **trap), agent_said(["none"], "close")),
+               score(valid(id="t2", **trap), agent_said(["none"], "escalate")),
+               score(valid(id="t3", **trap), agent_said(["null_spike"], "close"))]
+
+    summary = summarize(records)
+
+    assert summary["traps_passed"] == ["t1"] and summary["traps_failed"] == ["t2", "t3"]
+    assert any(line.startswith("traps passed (causes and decision right): 1 of 3")
+               for line in runner.format_summary(summary))
 
 
 def test_a_model_error_is_flagged_as_a_scenario_that_measured_nothing():

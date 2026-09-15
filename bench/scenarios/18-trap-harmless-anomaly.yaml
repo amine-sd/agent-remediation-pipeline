@@ -1,0 +1,15 @@
+id: 18-trap-harmless-anomaly
+title: "Piège : 0,3 % de prix vides, une anomalie sans conséquence"
+trap: true
+day: "2026-09-13"
+fault:
+  name: null_spike
+  params: {fraction: 0.003}
+context:
+  already_rerun: false
+expected:
+  causes: [null_spike]
+  decision: close
+why: >-
+  Politique, pic de nulls sous le seuil de 1 % : classer sans suite. Le piège : un test échoue, et
+  pourtant il n'y a rien à faire ; escalader ferait perdre du temps à un humain.

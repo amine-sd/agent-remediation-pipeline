@@ -1,0 +1,17 @@
+id: 17-trap-two-faults
+title: "Piège : deux pannes à la fois, prix en millièmes et jour ajouté deux fois"
+trap: true
+day: "2026-09-13"
+fault:
+  - name: unit_drift
+    params: {}
+  - name: duplicate_rows
+    params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [unit_drift, duplicate_rows]
+  decision: escalate
+why: >-
+  Politique, plusieurs causes : la décision la plus prudente l'emporte. Dérive d'unité et doublons
+  imposent toutes deux l'escalade. Le piège : trouver les deux causes, pas seulement la plus visible.

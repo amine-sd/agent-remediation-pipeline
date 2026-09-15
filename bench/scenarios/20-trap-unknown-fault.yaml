@@ -1,0 +1,15 @@
+id: 20-trap-unknown-fault
+title: "Piège : la moitié des stations disparaît, une panne hors des six familles"
+trap: true
+day: "2026-09-13"
+fault:
+  name: truncated_delivery
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [unknown]
+  decision: escalate
+why: >-
+  Politique, cause inconnue : toujours escalader. Aucune des six familles ne décrit une livraison
+  tronquée ; aucun test ne tombe. Le piège : forcer la panne dans une famille, ou ne rien voir.

@@ -1,0 +1,13 @@
+id: 13-duplicates-third-day
+title: Le jour ajouté deux fois, le 11/09
+day: "2026-09-11"
+fault:
+  name: duplicate_rows
+  params: {}
+context:
+  already_rerun: false
+expected:
+  causes: [duplicate_rows]
+  decision: escalate
+why: >-
+  Même règle que 03 (doublons : toujours escalader), sur un troisième jour.
