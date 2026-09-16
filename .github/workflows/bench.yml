@@ -1,0 +1,45 @@
+# Every push replays the benchmark without a model and holds it to bench/reference.json.
+# The model's answers are the ones recorded in bench/fixtures: this checks the code around the
+# model (tools, verdict validation, guardrail, policy, scoring), not the model itself.
+name: bench
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -r requirements.txt
+
+      - name: Unit tests
+        run: python -m pytest
+
+      - name: Rebuild the benchmark's data from the shipped archives
+        run: python -m bench.bootstrap
+
+      - name: Replay the benchmark and compare with the reference
+        env:
+          OLLAMA_URL: http://127.0.0.1:9  # a closed port: any call to a model would fail
+        run: python -m pytest bench --replay
+
+      - name: Keep the run's transcripts, journals and decisions
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: bench-run
+          path: logs/bench/
+          if-no-files-found: ignore

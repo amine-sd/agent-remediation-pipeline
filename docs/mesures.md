@@ -16,7 +16,7 @@ lieu ?), la ou les causes attendues, et la décision attendue. La décision atte
 | Paramètre | Valeur | Pourquoi |
 |---|---|---|
 | Modèle | Servi en local par Ollama ; nom, version et quantification notés dans chaque rapport | Un résultat sans le modèle qui l'a produit ne se rejoue pas |
-| Température des mesures 1 à 3 | 0, graine fixée | Reproductible : deux lancements donnent le même rapport |
+| Température des mesures 1 à 3 | 0, graine fixée | Vise la reproductibilité, sans l'atteindre : mesuré le 16/09, deux passages identiques ont donné 4 réponses différentes sur 20. L'inférence sur processeur n'est pas déterministe au bit près |
 | Température de la mesure 4 | 0,8 | C'est la valeur par défaut d'Ollama : la stabilité mesure si la décision tient quand le modèle échantillonne |
 | Exécutions pour la stabilité | 3 par scénario | Nombre impair, donc une majorité existe toujours |
 | Budget | 10 appels d'outils par incident | Au-delà, l'escalade est imposée (voir la politique) |
@@ -95,8 +95,8 @@ donnent la même décision exacte (relancer, classer ou escalader), pas seulemen
 Le rapport donne le nombre de scénarios stables sur 20, la répartition des décisions pour les
 autres, et signale tout scénario dont **au moins une** exécution tombe dans la case dangereuse.
 
-Pourquoi pas à température 0 : avec une graine fixée, les réponses y sont presque toujours
-identiques, et la stabilité ne mesurerait que le bruit de la machine.
+Pourquoi pas à température 0 : avec une graine fixée, les réponses y changent peu (4 sur 20 entre
+deux passages identiques), et la stabilité mesurerait surtout le bruit de la machine.
 
 Coût : 60 passages de l'agent. Ils ne sont refaits que lorsqu'on réenregistre les réponses du
 modèle.
@@ -117,9 +117,13 @@ exemple :
 | Prix moyen qui change d'ordre de grandeur par rapport à la veille | `unit_drift` |
 | Aucun des signaux ci-dessus | `none` |
 
-**Les règles s'écrivent à partir de la définition des pannes, avant de voir les résultats de
-l'agent sur les 20 scénarios, et ne sont plus retouchées ensuite.** Sinon, la comparaison serait
-biaisée dans un sens ou dans l'autre.
+**Les règles s'écrivent à partir de la définition des pannes, et ne sont plus retouchées
+ensuite.** Elles ne sont jamais ajustées sur les résultats du banc : sinon, la comparaison serait
+biaisée.
+
+**Écart à ce qui était prévu.** Les règles devaient être écrites avant de connaître les résultats
+de l'agent. Elles l'ont été après : elles partent de la seule définition des pannes, mais leur
+auteur savait déjà où l'agent échouait. Le 20 sur 20 des règles est à lire avec cette réserve.
 
 La ligne de base est notée sur les mesures 1 et 2, dans le même tableau que l'agent. Son coût est
 nul et sa stabilité totale, par construction.
@@ -130,12 +134,29 @@ n'est pas le cas, le rapport le dira.
 
 ## Le seuil de non-régression
 
-Il sera fixé après le premier rapport complet : un seuil choisi avant de connaître le niveau réel
-de l'agent serait arbitraire.
+En intégration continue, le banc rejoue des réponses enregistrées du modèle
+(`pytest bench --replay`). Le seuil y protège donc le code autour du modèle (outils, validation,
+garde-fou, politique, calcul des mesures), pas le modèle lui-même.
 
-En intégration continue, le banc rejoue des réponses enregistrées du modèle. Le seuil y protège
-donc le code autour du modèle (outils, validation, garde-fous, calcul des mesures), pas le modèle
-lui-même.
+**Le seuil est une référence exacte**, fixée après le premier rapport complet. Le résultat du
+rejeu est figé dans `bench/reference.json`, scénario par scénario : causes et décision rendues,
+cellule de la matrice, ce qu'en a fait le garde-fou, appels et jetons. Le rejeu échoue au moindre
+écart, dans un sens comme dans l'autre.
+
+Pourquoi pas un plafond ou un plancher :
+
+- Les réponses du modèle sont figées : le score ne peut bouger que si le code a changé. Aucun écart
+  n'est du bruit.
+- Un score qui s'améliore tout seul est aussi suspect qu'une baisse : un défaut du calcul peut
+  faire disparaître des cas dangereux.
+- Un plafond sur la case dangereuse ne verrait pas un garde-fou qui cesse de refuser les secondes
+  relances : la case resterait à 14, puisqu'elle mesure la décision de l'agent et non ce que le
+  garde-fou en fait. La référence exacte le voit.
+
+Déplacer la référence est un geste explicite, visible dans l'historique :
+`python -m bench.reference update logs/bench/RUN`, à partir d'un rejeu complet. Après un
+changement de prompt, il faut d'abord réenregistrer les réponses du modèle
+(`pytest bench --record`), puis rejouer, puis mettre la référence à jour.
 
 ## Ordre d'affichage du rapport
 

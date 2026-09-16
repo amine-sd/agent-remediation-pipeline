@@ -22,8 +22,11 @@ from agent.verdict import VERDICT_SCHEMA, InvalidVerdict, validate
 # Default: qwen2.5:3b with a context of 4096, the model shared with another project on this
 # machine (asking for another context size would make Ollama reload it at every switch).
 MODEL = os.environ.get("AGENT_MODEL", "qwen2.5:3b")
-# temperature 0 and a fixed seed: measured runs must be reproducible (docs/mesures.md).
-OPTIONS = {"temperature": 0, "seed": 0, "num_ctx": int(os.environ.get("AGENT_NUM_CTX", "4096"))}
+# temperature 0 and a fixed seed: measured runs must be reproducible (docs/mesures.md). The
+# stability measure changes them (temperature 0.8) through the environment, nothing else.
+OPTIONS = {"temperature": float(os.environ.get("AGENT_TEMPERATURE", "0")),
+           "seed": int(os.environ.get("AGENT_SEED", "0")),
+           "num_ctx": int(os.environ.get("AGENT_NUM_CTX", "4096"))}
 TOOL_BUDGET = 10
 MAX_TOOL_RESULT_CHARS = 2500
 # Until the guardrails exist, the agent only reads: no rerun, no ticket (autonomy policy).

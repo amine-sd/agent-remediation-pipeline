@@ -13,6 +13,7 @@ data/faults/
 # dbt
 target/
 dbt_packages/
+.user.yml
 logs/
 
 # Secrets et réglages locaux
