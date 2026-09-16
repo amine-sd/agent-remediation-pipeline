@@ -115,6 +115,53 @@ def test_a_truncated_delivery_drops_half_the_stations_with_their_prices():
     assert {p["pdv_id"] for p in truncated["prices.csv"][1]} == kept
 
 
+def mixed_day():
+    stations = [{"pdv_id": str(i), "cp": cp} for i, cp in enumerate(["29200", "35000", "75001", "13001"])]
+    prices = [{"pdv_id": str(i), "prix_nom": fuel, "prix_valeur": value}
+              for i in range(4) for fuel, value in (("Gazole", "2.3"), ("E85", "0.9"), ("SP98", ""))]
+    return {"stations.csv": (["pdv_id", "cp"], stations),
+            "prices.csv": (["pdv_id", "prix_nom", "prix_valeur"], prices)}
+
+
+def test_unit_drift_on_one_fuel_leaves_the_other_fuels_alone():
+    rows = faults.scale_one_fuel(mixed_day(), {"fuel": "E85"})["prices.csv"][1]
+
+    assert {r["prix_valeur"] for r in rows if r["prix_nom"] == "E85"} == {"900"}
+    assert {r["prix_valeur"] for r in rows if r["prix_nom"] == "Gazole"} == {"2.3"}
+    assert {r["prix_valeur"] for r in rows if r["prix_nom"] == "SP98"} == {""}
+
+
+def test_partial_duplicates_send_a_share_of_the_stations_twice_the_same_way_every_time():
+    first = faults.duplicate_some_stations(mixed_day(), {"share": 0.5})["prices.csv"][1]
+    second = faults.duplicate_some_stations(mixed_day(), {"share": 0.5})["prices.csv"][1]
+
+    duplicated = first[12:]
+    assert len(first) == 12 + 6 and first == second
+    assert len({r["pdv_id"] for r in duplicated}) == 2  # half of the 4 stations, with all their prices
+    assert duplicated == [r for r in first[:12] if r["pdv_id"] in {d["pdv_id"] for d in duplicated}]
+
+
+def test_zero_prices_replace_a_share_of_the_filled_prices_and_never_a_blank():
+    rows = faults.zero_some_prices(mixed_day(), {"share": 0.5})["prices.csv"][1]
+
+    assert sum(r["prix_valeur"] == "0" for r in rows) == 4  # half of the 8 filled prices
+    assert sum(r["prix_valeur"] == "" for r in rows) == 4  # the blanks stay blank
+    assert rows == faults.zero_some_prices(mixed_day(), {"share": 0.5})["prices.csv"][1]
+
+
+def test_a_missing_region_drops_its_stations_and_their_prices():
+    day = faults.drop_a_region(mixed_day(), {"departments": ["22", "29", "35", "56"]})
+
+    assert [s["cp"] for s in day["stations.csv"][1]] == ["75001", "13001"]
+    assert {p["pdv_id"] for p in day["prices.csv"][1]} == {"2", "3"}
+
+
+def test_a_price_rise_moves_every_price_and_leaves_blanks_alone():
+    rows = faults.raise_all_prices(mixed_day(), {"factor": 1.08})["prices.csv"][1]
+
+    assert {r["prix_valeur"] for r in rows} == {"2.484", "0.972", ""}
+
+
 def two_faults(*names):
     return {"faults": [{"name": n, "params": {}} for n in names], "date": "2026-09-13"}
 

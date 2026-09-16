@@ -26,7 +26,8 @@ from pipeline.run import run_dbt, run_pipeline
 
 SCENARIOS = {1: "schema_drift", 2: "null_spike", 3: "duplicate_rows",
              4: "freshness", 5: "unit_drift", 6: "source_error", 7: "healthy",
-             8: "truncated_delivery"}
+             8: "truncated_delivery", 9: "unit_drift_one_fuel", 10: "partial_duplicates",
+             11: "zero_prices", 12: "missing_region", 13: "price_rise"}
 
 
 def latest_day(raw_dir: Path = RAW_DIR) -> date:

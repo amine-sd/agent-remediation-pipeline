@@ -1,0 +1,15 @@
+id: 23-unseen-zero-prices
+title: "Jamais vu : 2 % des prix arrivent à zéro au lieu d'être vides"
+unseen: true
+day: "2026-09-11"
+fault:
+  name: zero_prices
+  params: {share: 0.02}
+context:
+  already_rerun: false
+expected:
+  causes: [unknown]
+  decision: escalate
+why: >-
+  Politique, cause inconnue : toujours escalader. Un zéro n'est pas une valeur vide, et aucune des
+  six familles ne décrit un prix de remplacement écrit par la source. Aucun test ne tombe.

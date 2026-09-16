@@ -1,0 +1,16 @@
+id: 21-unseen-unit-drift-one-fuel
+title: "Jamais vu : seul l'E85 passe en millièmes d'euro"
+unseen: true
+day: "2026-09-13"
+fault:
+  name: unit_drift_one_fuel
+  params: {fuel: E85}
+context:
+  already_rerun: false
+expected:
+  causes: [unit_drift]
+  decision: escalate
+why: >-
+  Politique, dérive silencieuse : toujours escalader. La source change le format d'un seul
+  carburant avant les autres ; tous les tests passent, seul le prix moyen de l'E85 est multiplié
+  par mille.

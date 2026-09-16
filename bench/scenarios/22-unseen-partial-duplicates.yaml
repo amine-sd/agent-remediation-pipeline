@@ -1,0 +1,15 @@
+id: 22-unseen-partial-duplicates
+title: "Jamais vu : les prix d'une station sur dix livrés deux fois"
+unseen: true
+day: "2026-09-12"
+fault:
+  name: partial_duplicates
+  params: {share: 0.1}
+context:
+  already_rerun: false
+expected:
+  causes: [duplicate_rows]
+  decision: escalate
+why: >-
+  Politique, doublons : toujours escalader. Un envoi par morceaux dont un morceau est parti deux
+  fois : le volume n'augmente que d'un dixième environ, mais le test d'unicité échoue.

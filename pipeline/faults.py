@@ -88,6 +88,67 @@ def drop_half_the_stations(tables: Tables, params: dict) -> Tables:
     return tables
 
 
+# Faults added at J22, after the baseline rules were frozen: the benchmark's "unseen" scenarios.
+
+def scale_one_fuel(tables: Tables, params: dict) -> Tables:
+    """Unit drift on one product: the source moves one fuel to thousandths of a euro before the
+    others. Every other fuel is untouched, and nothing breaks."""
+    fuel, factor = params.get("fuel", "E85"), params.get("factor", 1000)
+    columns, rows = tables["prices.csv"]
+    tables["prices.csv"] = (columns, [
+        {**row, "prix_valeur": format(float(row["prix_valeur"]) * factor, "g")}
+        if row["prix_nom"] == fuel and row["prix_valeur"] else row
+        for row in rows
+    ])
+    return tables
+
+
+def duplicate_some_stations(tables: Tables, params: dict) -> Tables:
+    """Partial duplicates: the source sends its file in chunks and one chunk twice, so the prices
+    of a share of the stations arrive a second time. Seeded, so the same stations every time."""
+    columns, rows = tables["prices.csv"]
+    ids = sorted({row["pdv_id"] for row in rows})
+    chosen = set(random.Random(SEED).sample(ids, round(len(ids) * params.get("share", 0.1))))
+    tables["prices.csv"] = (columns, rows + [dict(row) for row in rows if row["pdv_id"] in chosen])
+    return tables
+
+
+def zero_some_prices(tables: Tables, params: dict) -> Tables:
+    """Outside the six families: a share of the prices arrives as 0 instead of empty, a placeholder
+    the source's export writes for a missing value. Nothing is empty and no test fails. Seeded."""
+    columns, rows = tables["prices.csv"]
+    filled = [i for i, row in enumerate(rows) if row["prix_valeur"]]
+    chosen = set(random.Random(SEED).sample(filled, round(len(filled) * params.get("share", 0.02))))
+    tables["prices.csv"] = (columns, [{**row, "prix_valeur": "0"} if i in chosen else row
+                                      for i, row in enumerate(rows)])
+    return tables
+
+
+def drop_a_region(tables: Tables, params: dict) -> Tables:
+    """Outside the six families: every station of one region is missing with its prices, as if a
+    regional feed were lost upstream. The departments default to Brittany. No test fails."""
+    departments = tuple(params.get("departments", ("22", "29", "35", "56")))
+    station_columns, stations = tables["stations.csv"]
+    price_columns, prices = tables["prices.csv"]
+    dropped = {s["pdv_id"] for s in stations if s["cp"][:2] in departments}
+    tables["stations.csv"] = (station_columns, [s for s in stations if s["pdv_id"] not in dropped])
+    tables["prices.csv"] = (price_columns, [p for p in prices if p["pdv_id"] not in dropped])
+    return tables
+
+
+def raise_all_prices(tables: Tables, params: dict) -> Tables:
+    """No fault: every price really rose overnight by the same share, as after a tax change. A large
+    change in the data, and nothing to repair."""
+    factor = params.get("factor", 1.08)
+    columns, rows = tables["prices.csv"]
+    tables["prices.csv"] = (columns, [
+        {**row, "prix_valeur": format(round(float(row["prix_valeur"]) * factor, 3), "g")}
+        if row["prix_valeur"] else row
+        for row in rows
+    ])
+    return tables
+
+
 def _missing_archive(day: date) -> bytes:
     # Goes through the real check, so the error reads exactly like a real missing day.
     return check_archive(day, MISSING_DAY_PAGE, "text/html")
@@ -105,6 +166,11 @@ TAMPERS: dict[str, Callable[[Tables, dict], Tables]] = {
     "duplicate_rows": duplicate_prices,
     "unit_drift": scale_prices,
     "truncated_delivery": drop_half_the_stations,
+    "unit_drift_one_fuel": scale_one_fuel,
+    "partial_duplicates": duplicate_some_stations,
+    "zero_prices": zero_some_prices,
+    "missing_region": drop_a_region,
+    "price_rise": raise_all_prices,
 }
 SOURCE_FAULTS: dict[str, Callable[[date], bytes]] = {
     "freshness": _missing_archive,

@@ -1,0 +1,15 @@
+id: 25-unseen-price-rise
+title: "Jamais vu : tous les prix montent de 8 %, une vraie hausse"
+unseen: true
+day: "2026-09-12"
+fault:
+  name: price_rise
+  params: {factor: 1.08}
+context:
+  already_rerun: false
+expected:
+  causes: [none]
+  decision: close
+why: >-
+  Politique, aucune panne : classer sans suite. Les prix ont vraiment bougé, comme après une hausse
+  de taxe ; rien n'est cassé. Le piège : prendre un grand changement pour une panne.

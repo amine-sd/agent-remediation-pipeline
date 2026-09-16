@@ -20,11 +20,12 @@ from bench.runner import load_scenarios, summarize
 
 REFERENCE = Path(__file__).parent / "reference.json"
 # Everything a replay decides, per scenario. The duration is left out: it depends on the machine.
-FIELDS = ("trap", "expected_causes", "expected_decision", "causes", "decision", "stopped", "cell",
-          "cause_correct", "decision_correct", "imposed_escalation", "right_category_wrong_action",
+FIELDS = ("trap", "unseen", "expected_causes", "expected_decision", "causes", "decision", "stopped",
+          "cell", "cause_correct", "decision_correct", "imposed_escalation", "right_category_wrong_action",
           "guardrail", "model_calls", "tool_calls", "prompt_tokens", "output_tokens")
-HEADLINE = ("dangerous", "causes_correct", "decisions_correct", "traps_passed", "guardrail_refusals",
-            "imposed_escalations", "right_category_wrong_action", "model_errors")
+HEADLINE = ("dangerous", "dangerous_executed", "right_decisions_blocked", "causes_correct",
+            "decisions_correct", "traps_passed", "guardrail_refusals", "imposed_escalations",
+            "right_category_wrong_action", "model_errors")
 
 
 def build(records: list[dict], source: str) -> dict:

@@ -33,6 +33,7 @@ def test_a_guardrail_that_stops_refusing_fails_although_the_dangerous_count_is_t
     differences = reference.differences(accepted, [{**refused, "guardrail": "executed"}])
 
     assert differences == [
+        "dangerous_executed: 0 in the reference, 1 now",
         "guardrail_refusals: 1 in the reference, 0 now",
         "07-source-error-after-rerun: guardrail 'refused' in the reference, 'executed' now",
     ]
@@ -75,7 +76,7 @@ def test_only_a_complete_replay_becomes_the_reference(tmp_path):
 
     with pytest.raises(ValueError, match="'agent' run"):
         reference.update(finished_run(tmp_path / "live", "agent", ids), target)
-    with pytest.raises(ValueError, match="did not play 20-trap-unknown-fault"):
+    with pytest.raises(ValueError, match="did not play 25-unseen-price-rise"):
         reference.update(finished_run(tmp_path / "partial", "replay", ids[:-1]), target)
     assert not target.exists()
 

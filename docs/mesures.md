@@ -41,12 +41,12 @@ combinent deux pannes. Chaque cause est prise dans cette énumération :
 l'ensemble attendu. Pas de crédit partiel : trouver une panne sur deux, c'est faux. Un crédit
 partiel ferait monter le score sans que l'agent ait mieux compris.
 
-`unknown` est la bonne réponse pour une panne hors des six familles (un scénario piège le prévoit :
-une livraison tronquée), et seulement dans ce cas. Pour une panne d'une famille connue, elle est
+`unknown` est la bonne réponse pour une panne hors des six familles (une livraison tronquée, des
+prix à zéro, une région manquante), et seulement dans ce cas. Pour une panne d'une famille connue, elle est
 fausse ; elle mène de toute façon à l'escalade : elle peut coûter du temps humain, jamais causer de
 dégât.
 
-**Le rapport.** Le nombre de scénarios corrects sur 20, puis le détail par famille.
+**Le rapport.** Le nombre de scénarios corrects sur le total, puis le détail par famille.
 
 ## Mesure 2 : matrice de décision 2x2
 
@@ -75,6 +75,20 @@ scénarios concernés.
    relancer tombe dans la case « autonomie justifiée », alors que le pipeline reste en panne sans
    que personne ne soit prévenu. La matrice ne voit pas ce cas ; le rapport le montre à côté.
 
+### Après le garde-fou
+
+La matrice mesure la décision de l'agent. Deux comptes mesurent ce que le système en a fait, une
+fois la décision passée par le garde-fou :
+
+- **Actions dangereuses exécutées** : scénarios où il fallait escalader et où le garde-fou a
+  laissé passer une relance ou un classement sans suite. C'est le dégât réel possible.
+- **Bonnes décisions bloquées** : scénarios où l'agent a agi seul exactement comme la politique le
+  voulait, et où le garde-fou a refusé. C'est le prix de la prudence du garde-fou.
+
+Quand le garde-fou change, ces comptes se mesurent sans le modèle : le rejeu des réponses
+enregistrées repasse les mêmes décisions par le nouveau garde-fou. Le rapport montre alors les deux
+lignes, garde-fou en place lors du passage et garde-fou actuel.
+
 ## Mesure 3 : coût
 
 Par incident, sur les exécutions à température 0 :
@@ -84,7 +98,7 @@ Par incident, sur les exécutions à température 0 :
 - les jetons consommés en entrée et en sortie, tels que renvoyés par Ollama (`prompt_eval_count`
   et `eval_count`).
 
-Le rapport donne la médiane et le maximum sur les 20 scénarios, puis le détail par scénario. La
+Le rapport donne la médiane et le maximum sur tous les scénarios, puis le détail par scénario. La
 durée est notée à titre indicatif, sans être comparée : elle dépend de la machine.
 
 ## Mesure 4 : stabilité
@@ -92,14 +106,14 @@ durée est notée à titre indicatif, sans être comparée : elle dépend de la 
 Chaque scénario est rejoué 3 fois à température 0,8. Il est **stable** si les trois exécutions
 donnent la même décision exacte (relancer, classer ou escalader), pas seulement la même catégorie.
 
-Le rapport donne le nombre de scénarios stables sur 20, la répartition des décisions pour les
+Le rapport donne le nombre de scénarios stables sur le total, la répartition des décisions pour les
 autres, et signale tout scénario dont **au moins une** exécution tombe dans la case dangereuse.
 
 Pourquoi pas à température 0 : avec une graine fixée, les réponses y changent peu (4 sur 20 entre
 deux passages identiques), et la stabilité mesurerait surtout le bruit de la machine.
 
-Coût : 60 passages de l'agent. Ils ne sont refaits que lorsqu'on réenregistre les réponses du
-modèle.
+Coût : 3 passages de l'agent par scénario. Ils ne sont refaits que lorsqu'on réenregistre les
+réponses du modèle.
 
 ## La ligne de base sans LLM
 
@@ -124,6 +138,18 @@ biaisée.
 **Écart à ce qui était prévu.** Les règles devaient être écrites avant de connaître les résultats
 de l'agent. Elles l'ont été après : elles partent de la seule définition des pannes, mais leur
 auteur savait déjà où l'agent échouait. Le 20 sur 20 des règles est à lire avec cette réserve.
+
+**Les scénarios jamais vus.** Pour mesurer les règles sur des pannes qu'elles ne connaissaient pas,
+cinq scénarios ont été ajoutés après coup (21 à 25, marqués `unseen`), selon ce protocole :
+
+1. les règles sont gelées d'abord, et l'empreinte SHA-256 de `bench/baseline.py` est notée ;
+2. les pannes, leurs causes et leurs décisions attendues sont écrites ensuite ;
+3. les prédictions pour l'agent et pour les règles sont écrites avant le premier passage ;
+4. l'empreinte des règles est revérifiée avant de mesurer.
+
+Ces scénarios sont rapportés à part, puis comptés dans le total. Réserve : celui qui a choisi ces
+pannes connaissait les signaux que lisent les règles. Il pouvait donc prévoir lesquelles leur
+échapperaient, et l'a écrit dans ses prédictions.
 
 La ligne de base est notée sur les mesures 1 et 2, dans le même tableau que l'agent. Son coût est
 nul et sa stabilité totale, par construction.
@@ -161,12 +187,14 @@ changement de prompt, il faut d'abord réenregistrer les réponses du modèle
 ## Ordre d'affichage du rapport
 
 1. La case dangereuse, seule, avec ses scénarios
-2. La matrice 2x2 complète
-3. Les causes racines : agent et ligne de base côte à côte, par famille
-4. La stabilité
-5. Le coût
-6. Les cas à part : escalades imposées, actions refusées, « bonne catégorie, mauvaise action »
-7. Les conditions : modèle, version, quantification, date, graine
+2. Après le garde-fou : actions dangereuses exécutées et bonnes décisions bloquées
+3. Les scénarios jamais vus des règles : agent et ligne de base, à part
+4. La matrice 2x2 complète
+5. Les causes racines : agent et ligne de base côte à côte, par famille
+6. La stabilité
+7. Le coût
+8. Les cas à part : escalades imposées, actions refusées, « bonne catégorie, mauvaise action »
+9. Les conditions : modèle, version, quantification, date, graine
 
 ## Limites connues
 

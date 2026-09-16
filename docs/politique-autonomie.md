@@ -53,9 +53,9 @@ qui est exécutée.
 
 ### La liste blanche : une seule action
 
-**Relancer l'étape d'ingestion, au plus une fois par incident.** Un incident correspond à un jour
-de données ; les relances se comptent dans le journal du pipeline, où chaque exécution indique qui
-l'a demandée.
+**Relancer l'étape d'ingestion, au plus une fois par incident, et seulement si l'ingestion de
+l'exécution examinée a échoué.** Un incident correspond à un jour de données ; les relances se
+comptent dans le journal du pipeline, où chaque exécution indique qui l'a demandée.
 
 - **Pourquoi l'ingestion.** Elle est idempotente par construction : la relancer ne crée pas de
   doublons et ne perd rien. Et les deux pannes qu'une relance peut guérir, l'erreur 500 et le
@@ -64,6 +64,9 @@ l'a demandée.
   permettre n'ouvrirait qu'une occasion d'agir à tort.
 - **Pourquoi une seule fois.** Si la relance échoue, le problème n'est pas passager. Insister ne
   ferait que retarder le moment où un humain le voit.
+- **Pourquoi seulement après une ingestion en échec.** Une relance ne répare qu'une ingestion qui
+  n'a pas abouti. Quand l'ingestion est allée au bout, relancer retélécharge les mêmes données et
+  ne sert qu'à retarder l'escalade.
 
 ### Escalader : un ticket
 
@@ -76,6 +79,32 @@ La fonction de relance accepte n'importe quelle étape, mais le garde-fou n'exé
 et une seule fois par incident. Toute autre demande est refusée, tracée, et transformée en ticket.
 Restreindre au niveau du garde-fou, et là seulement, permet de vérifier par un test que le refus
 fonctionne vraiment.
+
+### Le garde-fou vérifie la décision contre le journal
+
+Une liste blanche borne ce que l'agent peut faire, pas la justesse de ce qu'il décide. Le premier
+rapport l'a montré : sur 14 décisions dangereuses, le garde-fou n'en a arrêté que 2, les 12 autres
+étant des actions permises (une première relance, un classement sans suite) décidées à tort.
+
+Le garde-fou confronte donc la décision aux faits inscrits dans le journal de l'exécution examinée,
+jamais aux causes données par l'agent, dont le diagnostic n'est pas fiable :
+
+| Décision | Refusée si | Pourquoi |
+|---|---|---|
+| Relancer l'ingestion | L'ingestion de l'exécution examinée n'a pas échoué | Une relance ne peut rien réparer d'autre |
+| Classer sans suite | Une étape de l'exécution examinée a échoué, test dbt compris | Un incident où quelque chose est rouge ne se classe pas sans un humain |
+| Relancer ou classer | Le journal ne connaît pas l'exécution examinée | Rien ne prouve ce qui s'y est passé |
+
+Chaque refus est tracé et devient un ticket, comme les autres.
+
+**Ce que cela coûte.** Le garde-fou est plus prudent que la table de décision : il ne sait pas
+mesurer l'ampleur d'une anomalie. Un pic de nulls sous le seuil de 1 % fait échouer un test
+`not_null` ; la table dit de classer sans suite, le garde-fou refuse et escalade. C'est une escalade
+inutile, du temps humain perdu, jamais un dégât.
+
+**Ce que cela ne voit pas.** Une panne qui ne fait rien échouer : la dérive d'unité, une livraison
+tronquée où tous les tests passent. Un classement sans suite y reste possible. Le détecter
+demanderait au garde-fou des seuils chiffrés, c'est-à-dire de devenir la ligne de base sans LLM.
 
 Aucun outil ne permet de modifier les données, le code, les modèles dbt ou le schéma. L'agent ne
 répare donc jamais rien au-delà d'une relance : ce projet mesure sa décision, pas sa capacité à

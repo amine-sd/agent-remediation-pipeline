@@ -2,7 +2,7 @@
 
 import json
 
-from bench.report import build_report, load_run
+from bench.report import build_report, load_run, load_runs
 from bench.runner import score, summarize
 
 
@@ -96,3 +96,48 @@ def test_the_conditions_of_the_run_are_stated(tmp_path):
     report = build_report(agent_run(tmp_path))
 
     assert "quantification Q4_K_M" in report and "Ollama : 0.34.0" in report
+
+
+def test_what_the_guardrail_let_through_is_shown_at_the_run_and_now(tmp_path):
+    replay = make_run(tmp_path / "replay", [
+        (UNIT, said(["none"], "close"), "refused"),
+        (ERROR, said(["source_error"], "rerun_ingestion"), "executed"),
+        (FALSE_ALARM, said(["none"], "close"), "closed"),
+    ])
+
+    report = build_report(agent_run(tmp_path), replay=replay)
+
+    assert report.index("## 1. La case dangereuse") < report.index("## 2. Après le garde-fou")
+    assert "| 05-unit-drift | escalader | classer sans suite | none | classé | refusée, ticket |" in report
+    assert "| Agent, garde-fou en place lors du passage (" in report and "| 1 (05-unit-drift) | 0 |" in report
+    assert "| Agent, garde-fou actuel rejoué sur les mêmes réponses (" in report and "`) | 0 | 0 |" in report
+
+
+UNSEEN = {**scenario("24-unseen-missing-region", ["unknown"], "escalate"), "unseen": True}
+
+
+def test_runs_covering_different_scenarios_are_read_as_one_with_the_unseen_ones_apart(tmp_path):
+    agent_run(tmp_path)
+    make_run(tmp_path / "later", [(UNSEEN, said(["none"], "close"), "closed")],
+             metadata={"started_at": "2026-09-17T00:20:00", "digest": "357c53fb659c"})
+    rules = make_run(tmp_path / "rules", [(UNSEEN, said(["none"], "close"), "closed"),
+                                          (UNIT, said(["unit_drift"], "escalate"), "escalated")])
+    stability = [make_run(tmp_path / f"s{i}", [(UNIT, said(["none"], "close"), "closed")]) for i in range(3)]
+    stability += [make_run(tmp_path / f"u{i}", [(UNSEEN, said(["none"], d), "closed")])
+                  for i, d in enumerate(["close", "close", "escalate"])]
+
+    report = build_report(load_runs([tmp_path / "agent", tmp_path / "later"]), stability=stability,
+                          baseline=rules)
+
+    assert "**Case dangereuse : 2 sur 4.**" in report
+    assert "| **Case dangereuse** | **1 sur 1** | **1 sur 1** |" in report
+    assert "Cas dangereux de l'agent : 24-unseen-missing-region." in report
+    assert "Scénarios stables (même décision exacte aux 3 exécutions) : 1 sur 2." in report
+    assert "(3 scénarios, 2026-09-15T11:13:09" in report and "(1 scénarios, 2026-09-17T00:20:00" in report
+    assert "| 24-unseen-missing-region | jamais vu |" in report
+
+
+def test_without_a_replay_the_current_guardrail_is_said_not_replayed(tmp_path):
+    report = build_report(agent_run(tmp_path))
+
+    assert "Garde-fou actuel : non rejoué pour ce rapport." in report

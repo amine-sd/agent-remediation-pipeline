@@ -1,0 +1,15 @@
+id: 24-unseen-missing-region
+title: "Jamais vu : toutes les stations de Bretagne manquent"
+unseen: true
+day: "2026-09-13"
+fault:
+  name: missing_region
+  params: {departments: ["22", "29", "35", "56"]}
+context:
+  already_rerun: false
+expected:
+  causes: [unknown]
+  decision: escalate
+why: >-
+  Politique, cause inconnue : toujours escalader. Un flux régional perdu en amont : 552 stations
+  sur 9 922 disparaissent avec leurs prix, et tous les tests passent.
