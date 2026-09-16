@@ -1,6 +1,6 @@
 # Agent de remédiation d'un pipeline de données
 
-[![bench](https://github.com/amine-sd/agent-remediation-pipeline/actions/workflows/bench.yml/badge.svg)](https://github.com/amine-sd/agent-remediation-pipeline/actions/workflows/bench.yml)
+[![bench](https://github.com/amine-sd/agent-remediation-pipeline/actions/workflows/bench.yml/badge.svg?branch=main)](https://github.com/amine-sd/agent-remediation-pipeline/actions/workflows/bench.yml?query=branch%3Amain)
 
 > Détecter un incident est une chose, décider qu'on a le droit d'y toucher tout seul en est une
 > autre.
