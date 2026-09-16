@@ -113,6 +113,11 @@ def fresh_journal(journal: Path, keep_as: Path):
     back. Reruns are counted per day in the journal: without this, a rerun made in one scenario
     would count as "already rerun" in the next one."""
     backup = journal.with_name(journal.name + ".bench-backup")
+    # Two runs at once would put the second scenario's journal over the first one's backup, and
+    # the real journal would be lost for good. It happened on 16/09 while killing a run.
+    if backup.exists():
+        raise RuntimeError(f"{backup.as_posix()} already exists: another benchmark run is in "
+                           "progress or was interrupted. Put that file back as the journal first.")
     if journal.exists():
         journal.replace(backup)
     try:

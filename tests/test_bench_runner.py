@@ -142,6 +142,20 @@ def test_a_model_error_is_flagged_as_a_scenario_that_measured_nothing():
     assert lines[1].startswith("dangerous")  # the dangerous cell stays first
 
 
+def test_an_existing_backup_stops_everything_instead_of_being_overwritten(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    journal.write_text("real\n", encoding="utf-8")
+    backup = tmp_path / "journal.jsonl.bench-backup"
+    backup.write_text("an earlier real journal\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="already exists"):
+        with fresh_journal(journal, tmp_path / "out" / "x-journal.jsonl"):
+            pass
+
+    assert journal.read_text(encoding="utf-8") == "real\n"
+    assert backup.read_text(encoding="utf-8") == "an earlier real journal\n"
+
+
 def test_the_real_journal_is_put_back_even_when_a_scenario_crashes(tmp_path):
     journal = tmp_path / "journal.jsonl"
     journal.write_text("real\n", encoding="utf-8")
